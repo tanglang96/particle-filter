@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="f7e6b827-5039-4902-b1cc-05c8d1b3ebf4" name="SERVER" url="http://10.24.82.13">
+        <fileTransfer host="10.24.82.13" port="22" rootFolder="/home/tanglang" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

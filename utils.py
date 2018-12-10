@@ -1,7 +1,7 @@
 import numpy as np
 
 def k_delta(x):
-    if x==0:
+    if abs(x)<0.1:
         return 1
     else:
         return 0
@@ -15,9 +15,10 @@ def k(r):
 def B_coefficient(a,b):
     return np.sum(np.sqrt(a*b))
 
-def get_weight(B,std):
-    sigma=std #更新权重的时候所用的标准差
-    return 1./(np.sqrt(2*np.pi)*sigma)*np.exp(-(1-B)/(2*sigma**2))
+def get_weight(B):
+    sigma=0.02 #更新权重的时候所用的标准差
+    #return 1./(np.sqrt(2*np.pi)*sigma)*np.exp(-(1-B)/(2*sigma**2))
+    return np.exp(-(1.-B)/sigma)
 
 def get_pixels(img,x,y,h_x,h_y):
     crop_img=img[y-h_y:y+h_y,x-h_x,x+h_x]

@@ -26,11 +26,11 @@ class state():
 
 
 class hist():
-    def __init__(self,num=8,max_range=360.):  #HSV颜色空间，色调H（0-360度），饱和度S（0%-100%），明度V（0%-100%）
+    def __init__(self,num=8,max_range=360.):  #HSV颜色空间，色调H（0-360度），饱和度S（0%-100%），明度V（0%-100%），在opencv中，H范围0-180，S范围0-255，V范围0-255
         self.num=num                          #直方图编号为0-7
         self.max_range=max_range
         self.divide=[max_range/num*i for i in range(num)]
-        self.height=np.array([0 for i in range(num)])
+        self.height=np.array([0. for i in range(num)])
 
     def get_hist_id(self,x):
         for i in range(self.num-1):
@@ -55,42 +55,53 @@ class ParticleFilter():
         self.imgs=glob.glob(os.path.join(img_path,'*.jpg'))
         print('processing image: %04d.jpg' % (self.img_index + 1))
         img_first = cv.imread(self.imgs[0])
-        initial_state=state(x=165,y=150,x_dot=0,y_dot=0,h_x=25,h_y=40,a_dot=0)  #x是横向的，y是纵向的，h_x与h_y分别是长方形边长的一半长度
+        initial_state=state(x=165,y=150,x_dot=0.,y_dot=0.,h_x=25,h_y=40,a_dot=0.)  #x是横向的，y是纵向的，h_x与h_y分别是长方形边长的一半长度
         initial_state.draw_dot(img_first,self.out_path+'/0001.jpg')
         initial_state.draw_rectangle(img_first, self.out_path+'/0001.jpg')
         self.state=initial_state
         self.particles=[]
-        self.weights=[]
-        random_nums=np.random.normal(0,0.6,(particles_num,7))   #一个state有7个变量
+        random_nums=np.random.normal(0,0.4,(particles_num,7))   #一个state有7个变量
+        self.weights = [1. / particles_num] * particles_num  # 初始情况下的particle具有相同的weight
         for i in range(particles_num):
-            self.weights=[1./particles_num]*particles_num   #初始情况下的particle具有相同的weight
             x0 = int(initial_state.x + random_nums.item(i, 0) * initial_state.h_x)
             y0 = int(initial_state.y + random_nums.item(i, 1) * initial_state.h_y)
             x_dot0 = initial_state.x_dot + random_nums.item(i, 2) * self.VELOCITY_DISTURB
             y_dot0 = initial_state.y_dot + random_nums.item(i, 3) * self.VELOCITY_DISTURB
-            h_x0 = initial_state.h_x + random_nums.item(i, 4) * self.SCALE_DISTURB
-            h_y0 = initial_state.h_y + random_nums.item(i, 5) * self.SCALE_DISTURB
+            h_x0 = int(initial_state.h_x + random_nums.item(i, 4) * self.SCALE_DISTURB)
+            h_y0 = int(initial_state.h_y + random_nums.item(i, 5) * self.SCALE_DISTURB)
             a_dot0 = initial_state.a_dot + random_nums.item(i, 6) * self.SCALE_CHANGE_D
             particle = state(x0, y0, x_dot0, y_dot0, h_x0, h_y0, a_dot0)
             particle.draw_dot(img_first,self.out_path+'/0001.jpg')
             self.particles.append(particle)
-        self.q = [hist(num=4,max_range=180),hist(num=4,max_range=255),hist(num=10,max_range=255)]
+        self.q = [hist(num=2,max_range=180),hist(num=2,max_range=255),hist(num=10,max_range=255)]
+        #print(self.q[0].divide)
+        #print(self.q[1].divide)
+        #print(self.q[2].divide)
+        img_first = cv.imread(self.imgs[0])
         img_first = cv.cvtColor(img_first, cv.COLOR_BGR2HSV)
+        #print(img_first.shape)
         #print(img_first)
         for hist_c in self.q:
             for u in range(hist_c.num):
                 a = np.sqrt(initial_state.h_x**2+initial_state.h_y**2)
                 f = 0
                 weight = []
-                x_val = 0
+                x_bin = []
                 for i in range(initial_state.x - initial_state.h_x, initial_state.x + initial_state.h_x):
                     for j in range(initial_state.y - initial_state.h_y, initial_state.y + initial_state.h_y):
                         x_val = img_first[j][i][self.q.index(hist_c)]
                         temp = k(np.linalg.norm((j - initial_state.y, i - initial_state.x)) / a)
+                        #print(temp)
                         f += temp
                         weight.append(temp)
-                f = 1. / f
-                hist_c.height[u] = f * np.sum(weight*k_delta(hist_c.get_hist_id(x_val) - u))
+                        #print(k_delta(hist_c.get_hist_id(float(x_val))))
+                        x_bin.append(k_delta(hist_c.get_hist_id(float(x_val)) - u))
+                        #print('temp: %s  x_val: %d  x_bin: %d  bin_num: (%d--%d)'%(temp,x_val,hist_c.get_hist_id(float(x_val)),self.q.index(hist_c),u))
+                #print('weight: %s  weight_sum: %s  x_bin: %s  x_bin_sum: %s  f: %s'%(np.array(weight),np.sum(weight),np.array(x_bin),np.sum(x_bin),f))
+                hist_c.height[u] = np.sum(np.array(weight) * np.array(x_bin))/f
+            #print('hieght sum: %s'%np.sum(hist_c.height))
+            #print('%d height: %s'%(self.q.index(hist_c),hist_c.height))
+        #print('q: %s'%(np.concatenate((self.q[0].height,self.q[1].height,self.q[2].height))))
         #print(self.weights)
         #print('img: %s  x: %s  y: %s  h_x: %s  h_y: %s  x_dot: %s  y_dot: %s  a_dot: %s'%(self.img_index+1,self.state.x,self.state.y,self.state.h_x,self.state.h_y,self.state.x_dot,self.state.y_dot,self.state.a_dot))
 
@@ -102,12 +113,12 @@ class ParticleFilter():
         index=get_random_index(self.weights)
         new_particles=[]
         for i in index:
-            new_particles.append(self.particles[i])
+            new_particles.append(state(self.particles[i].x,self.particles[i].y,self.particles[i].x_dot,self.particles[i].y_dot,self.particles[i].h_x,self.particles[i].h_y,self.particles[i].a_dot))
         self.particles=new_particles
 
     def propagate(self):
         for particle in self.particles:
-            random_nums = np.random.normal(0, 0.6, 7)
+            random_nums = np.random.normal(0, 0.4, 7)
             particle.x = int(particle.x+particle.x_dot*self.DELTA_T+random_nums[0]*particle.h_x+0.5)
             particle.y = int(particle.y+particle.y_dot*self.DELTA_T+random_nums[1]*particle.h_y+0.5)
             particle.x_dot = particle.x_dot+random_nums[2]*self.VELOCITY_DISTURB
@@ -116,7 +127,7 @@ class ParticleFilter():
             particle.h_y = int(particle.h_y*(particle.a_dot+1)+random_nums[5]*self.SCALE_DISTURB+0.5)
             particle.a_dot = particle.a_dot+random_nums[6]*self.SCALE_CHANGE_D
             particle.draw_dot(self.img, self.out_path+'/%04d.jpg'%(self.img_index+1))
-            #particle.output()
+           #particle.output()
 
     def observe(self):
         img=cv.imread(self.imgs[self.img_index])
@@ -124,32 +135,41 @@ class ParticleFilter():
         #print(img)
         B=[]
         for i in range(self.particles_num):
-            self.p = [hist(num=4, max_range=180), hist(num=4, max_range=255), hist(num=10, max_range=255)]
-            img = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+            if self.particles[i].x<0 or self.particles[i].x>self.img.shape[1]-1 or self.particles[i].y<0 or self.particles[i].y>self.img.shape[0]-1:
+                B.append(0)
+                continue
+            self.p = [hist(num=2, max_range=180), hist(num=2, max_range=255), hist(num=10, max_range=255)]
             for hist_c in self.p:
                 for u in range(hist_c.num):
                     a = np.sqrt(self.particles[i].h_x ** 2 + self.particles[i].h_y ** 2)
                     f = 0
                     weight = []
-                    x_val = 0
+                    x_bin = []
                     for m in range(self.particles[i].x - self.particles[i].h_x, self.particles[i].x + self.particles[i].h_x):
                         for n in range(self.particles[i].y - self.particles[i].h_y, self.particles[i].y + self.particles[i].h_y):
                             if n>=self.img.shape[0]:
                                 n=img.shape[0]-1
+                            elif n<0:
+                                n=0
                             if m>=self.img.shape[1]:
                                 m = img.shape[1] - 1
+                            elif m<0:
+                                m=0
                             x_val = img[n][m][self.p.index(hist_c)]
                             temp = k(np.linalg.norm((m - self.particles[i].x, n - self.particles[i].y)) / a)
                             f += temp
+                            x_bin.append(k_delta(hist_c.get_hist_id(x_val) - u))
                             weight.append(temp)
-                    f = 1. / f
-                    hist_c.height[u] = f * np.sum(weight * k_delta(hist_c.get_hist_id(x_val) - u))
+                    hist_c.height[u] = np.sum(np.array(weight) * np.array(x_bin))/f
+                #print('%d height: %s' % (self.p.index(hist_c), hist_c.height))
+            #print('particle: %d u: %s'%(i,np.concatenate((self.q[0].height,self.q[1].height,self.q[2].height))))
             B_temp=B_coefficient(np.concatenate((self.p[0].height,self.p[1].height,self.p[2].height)),np.concatenate((self.q[0].height,self.q[1].height,self.q[2].height)))
             B.append(B_temp)
-        std=np.std(B)
         for i in range(self.particles_num):
-            self.weights[i]=get_weight(B[i],std=std)
+            self.weights[i]=get_weight(B[i])
         self.weights/=sum(self.weights)
+        for i in range(self.particles_num):
+            print('dot: (%d,%d)  weight: %s'%(self.particles[i].x,self.particles[i].y,self.weights[i]))
         #print(self.weights)
 
     def estimate(self):
