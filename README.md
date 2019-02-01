@@ -11,13 +11,10 @@ This repo implements a particle filter based object tracking algorithm, file ```
 - cv2
 - numpy
 
-To run this code, just run ```main.py``` like this
+To run this code, just run ```main.py``` like ```python main.py```, this will generate a series of pics in folder  ```output```, you can use some scripts to transform these pics into a video
 
-```python main.py```
-
-You can tune parameters in file ```ParticleFilter.py```, like Gaussian distribution's $$\mu,\sigma$$ and color histogram's parameters etc.
+You can tune parameters in file ```ParticleFilter.py```, like particle nums, Gaussian distribution's $$\mu,\sigma$$ and color histogram's parameters etc.
 
 Here is one frame in the tracking process
 
 ![demo](demo.jpg)
-
