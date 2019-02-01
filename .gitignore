@@ -1,0 +1,6 @@
+/output/
+/test-videos1/
+*.tex
+*.pdf
+/__pycache__/
+/.idea/
